@@ -16,6 +16,7 @@ zip
 unzip
 curl
 python3-dev
+python3-pygame
 gawk
 
 # Typical Kodi deps (Bullseye build-dep equivalent subset)

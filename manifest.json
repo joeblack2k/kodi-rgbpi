@@ -1,0 +1,30 @@
+{
+  "channel": "latest",
+  "updated_at": "2026-03-15T15:05:00+01:00",
+  "assets": {
+    "kodi": {
+      "version": "2:21.3~git20260315.1217-a3a448d26b-dirty-0bullseye",
+      "filename": "kodi.deb",
+      "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/kodi.deb",
+      "sha256": "0f907a141285ca7aab938c79ab4e566a67431781fb710d7be7dae9846c566a5e"
+    },
+    "retroarch": {
+      "version": "1.22.0-rgbpi1",
+      "filename": "retroarch-rgbpi.tar.gz",
+      "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/retroarch-rgbpi.tar.gz",
+      "sha256": "7398bb6358451fa4dd49386ae14337f4ebfbbd108e58c8088eb4168ccd7d4304"
+    },
+    "cores": {
+      "version": "2026.03.15-rgbpi1",
+      "filename": "cores.tar.gz",
+      "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/cores.tar.gz",
+      "sha256": "ee11566d7e32924ef858fe4e95d6c90c2a938fa050c045c85d3409e5b2c2f7ea"
+    },
+    "timings": {
+      "version": "2026.03.15-rgbpi1",
+      "filename": "timings.dat",
+      "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/timings.dat",
+      "sha256": "3ce986b19ddf519881e225f9314cd0d4f0dbd03fde382c3ed56bc6305ae9de02"
+    }
+  }
+}
