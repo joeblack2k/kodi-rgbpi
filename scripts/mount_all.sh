@@ -27,12 +27,9 @@ set -u
 ###############################################################################
 
 # NAS connection basics
-# Current discovered default for this setup:
-# - SpiderNAS.local = 192.168.2.3
-# - main ROM share = emulation
 NAS_PROTOCOL="cifs"            # cifs | nfs
-NAS_IP="192.168.2.3"
-NAS_USER="xbmc"
+NAS_IP="192.168.1.10"
+NAS_USER="nasuser"
 NAS_PASS=""
 NAS_DOMAIN=""                  # Optional for SMB; leave empty if not needed
 
