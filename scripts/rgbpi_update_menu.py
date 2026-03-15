@@ -273,6 +273,22 @@ def run_pygame(app: MenuApp) -> int:
 
 def main() -> int:
   app = MenuApp()
+  if "--dump-status" in sys.argv:
+    print(f"KODI_INSTALLED={app.kodi.installed}")
+    print(f"KODI_AVAILABLE={app.kodi.available}")
+    print(f"KODI_UPDATE={'YES' if app.kodi.update_available else 'NO'}")
+    print(f"RETROARCH_INSTALLED={app.retroarch.installed}")
+    print(f"RETROARCH_AVAILABLE={app.retroarch.available}")
+    print(f"RETROARCH_UPDATE={'YES' if app.retroarch.update_available else 'NO'}")
+    print(f"CORES_INSTALLED={app.cores.installed}")
+    print(f"CORES_AVAILABLE={app.cores.available}")
+    print(f"CORES_UPDATE={'YES' if app.cores.update_available else 'NO'}")
+    print(f"TIMINGS_INSTALLED={app.timings.installed}")
+    print(f"TIMINGS_AVAILABLE={app.timings.available}")
+    print(f"TIMINGS_UPDATE={'YES' if app.timings.update_available else 'NO'}")
+    return 0
+  if "--terminal" in sys.argv:
+    return app.terminal_menu()
   try:
     import pygame  # noqa: F401
   except Exception:
