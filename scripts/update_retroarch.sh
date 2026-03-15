@@ -25,17 +25,6 @@ parse_args() {
   esac
 }
 
-installed_version() {
-  if [[ -f "$VERSION_FILE" ]]; then
-    cat "$VERSION_FILE"
-    return 0
-  fi
-  if [[ -x "$TARGET_BIN" ]]; then
-    strings "$TARGET_BIN" 2>/dev/null | grep -Eom1 'RetroArch [0-9]+\.[0-9]+(\.[0-9]+)?' | awk '{print $2}' && return 0
-  fi
-  echo "unknown"
-}
-
 main() {
   parse_args "${1:-}"
   require_root
@@ -53,11 +42,23 @@ main() {
     exit 1
   fi
 
-  local available url checksum installed update_flag
+  local available url checksum binary_checksum installed update_flag local_sha fallback_detected
   available="$(manifest_field retroarch version)"
   url="$(manifest_field retroarch url)"
   checksum="$(manifest_field retroarch sha256)"
-  installed="$(installed_version)"
+  binary_checksum="$(manifest_field retroarch binary_sha256)"
+  installed="unknown"
+  fallback_detected="NO"
+
+  if [[ -f "$VERSION_FILE" ]]; then
+    installed="$(cat "$VERSION_FILE")"
+  elif [[ -x "$TARGET_BIN" && -n "$binary_checksum" ]]; then
+    local_sha="$(sha256_file "$TARGET_BIN")"
+    if [[ "$local_sha" == "$binary_checksum" ]]; then
+      installed="$available"
+      fallback_detected="YES"
+    fi
+  fi
 
   if compare_pkg_update "$installed" "$available" 2>/dev/null || [[ "$installed" == "unknown" && "$available" != "unknown" ]]; then
     update_flag="YES"
@@ -70,6 +71,7 @@ main() {
   log "$LOG_FILE" "Installed version : $installed"
   log "$LOG_FILE" "Available version : $available"
   log "$LOG_FILE" "Asset URL          : $url"
+  [[ "$fallback_detected" == "YES" ]] && log "$LOG_FILE" "Detected installed RetroArch via binary checksum"
 
   if [[ "$MODE" == "status" ]]; then
     bar 100 "Status ready"
@@ -136,7 +138,7 @@ main() {
   bar 100 "RetroArch update complete"
   line
   log "$LOG_FILE" "RetroArch update finished"
-  emit_status_lines "$(installed_version)" "$available" "NO"
+  emit_status_lines "$(cat "$VERSION_FILE")" "$available" "NO"
 }
 
 main "$@"

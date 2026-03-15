@@ -12,7 +12,8 @@
       "version": "1.22.0-rgbpi1",
       "filename": "retroarch-rgbpi.tar.gz",
       "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/retroarch-rgbpi.tar.gz",
-      "sha256": "7398bb6358451fa4dd49386ae14337f4ebfbbd108e58c8088eb4168ccd7d4304"
+      "sha256": "7398bb6358451fa4dd49386ae14337f4ebfbbd108e58c8088eb4168ccd7d4304",
+      "binary_sha256": "ed0ea5aff6fd83f420fcf94c9dd1ca5de03d7f5f5191ebf23fbdc4645caab3e4"
     },
     "cores": {
       "version": "2026.03.15-rgbpi1",
