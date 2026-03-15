@@ -32,6 +32,10 @@ This repo now covers:
   - installs a dedicated passwordless sudoers drop-in for `pi`
 - `scripts/bootstrap_local_metadata.sh`
   - seeds version marker files on an existing RGB-Pi install so the menu can show current versions immediately
+- `scripts/mount_all.sh`
+  - mounts NAS shares under `/mnt/nas`
+  - optionally bind-maps ROM folders directly into RGB-Pi ROM paths
+  - supports non-blocking boot integration via systemd
 - `scripts/update_kodi_build_and_install.sh`
   - End-to-end: configure -> build -> package -> install
   - Enforces DEB `arm64` packaging
@@ -54,6 +58,7 @@ sudo bash /home/pi/ports/update_cores.sh
 sudo bash /home/pi/ports/update_timings.sh
 sudo bash /home/pi/ports/ensure_pi_sudo.sh
 sudo bash /home/pi/ports/bootstrap_local_metadata.sh
+sudo bash /home/pi/ports/mount_all.sh --status
 sudo bash /home/pi/ports/update_kodi_build_and_install.sh
 python3 /home/pi/ports/rgbpi_update_menu.py
 ```
@@ -68,6 +73,6 @@ python3 /home/pi/ports/rgbpi_update_menu.py
 ## Copy to /ports/
 ```bash
 scp manifest.json pi@<rgbpi-ip>:/home/pi/ports/
-scp scripts/common.sh scripts/update_kodi.sh scripts/update_retroarch.sh scripts/update_cores.sh scripts/update_timings.sh scripts/ensure_pi_sudo.sh scripts/bootstrap_local_metadata.sh scripts/update_kodi_build_and_install.sh scripts/kodi_update_menu.sh scripts/rgbpi_update_menu.py pi@<rgbpi-ip>:/home/pi/ports/
-ssh pi@<rgbpi-ip> "chmod +x /home/pi/ports/update_*.sh /home/pi/ports/ensure_pi_sudo.sh /home/pi/ports/bootstrap_local_metadata.sh /home/pi/ports/kodi_update_menu.sh /home/pi/ports/rgbpi_update_menu.py"
+scp scripts/common.sh scripts/update_kodi.sh scripts/update_retroarch.sh scripts/update_cores.sh scripts/update_timings.sh scripts/ensure_pi_sudo.sh scripts/bootstrap_local_metadata.sh scripts/mount_all.sh scripts/update_kodi_build_and_install.sh scripts/kodi_update_menu.sh scripts/rgbpi_update_menu.py pi@<rgbpi-ip>:/home/pi/ports/
+ssh pi@<rgbpi-ip> "chmod +x /home/pi/ports/update_*.sh /home/pi/ports/ensure_pi_sudo.sh /home/pi/ports/bootstrap_local_metadata.sh /home/pi/ports/mount_all.sh /home/pi/ports/kodi_update_menu.sh /home/pi/ports/rgbpi_update_menu.py"
 ```
