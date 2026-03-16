@@ -1,12 +1,12 @@
 {
   "channel": "latest",
-  "updated_at": "2026-03-16T06:40:00+00:00",
+  "updated_at": "2026-03-16T12:30:55Z",
   "assets": {
     "kodi": {
-      "version": "2:21.3~git20260315.1217-a3a448d26b-dirty-0bullseye",
+      "version": "2:21.3~git20260316.1041-nogitfound-0bullseye+rgbpi2",
       "filename": "kodi.deb",
       "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/kodi.deb",
-      "sha256": "0f907a141285ca7aab938c79ab4e566a67431781fb710d7be7dae9846c566a5e"
+      "sha256": "fac7c63582d5a60f5c4e90e8485a5a3f3131ae6a1f56a7bf8c0ead044de67e48"
     },
     "kodi_joystick": {
       "version": "21.1.23",

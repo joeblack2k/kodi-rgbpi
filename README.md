@@ -10,6 +10,9 @@ This repo is intentionally small:
 Do not launch the individual files in `data/` directly.
 `update.sh` is the only real entrypoint.
 
+Current release note:
+- the bundled `kodi.deb` is the RGB-Pi Pi4 `GBM + GLES + ALSA` build with `SMB` and `NFS` enabled
+
 ## What `update.sh` Does
 
 - launches the RGB-Pi updater menu
@@ -49,6 +52,7 @@ This release zip is intended to be fully self-contained:
 - `timings.dat`
 
 That means the Pi does not need internet access just to run the updater.
+It also means the included Kodi package and its required bundled runtime files stay in sync with the manifest inside the zip.
 
 Manual install from the repo is still possible if needed.
 
