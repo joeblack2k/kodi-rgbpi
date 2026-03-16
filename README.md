@@ -3,7 +3,6 @@
 Clean public updater repo for RGB-Pi.
 
 This repo is intentionally small:
-- `RGB-PI Updater.sh`
 - `update.sh`
 - `data/`
 - `manifest.json`
@@ -23,31 +22,31 @@ Do not launch the individual files in `data/` directly.
 
 ## Install On RGB-Pi
 
-Create the port folder:
+The updater should live entirely inside its own port folder:
 
 ```bash
 mkdir -p "/sd/roms/ports/RGB-PI Updater"
 ```
 
-Copy these two files into `/sd/roms/ports`:
+Do not put a launcher `.sh` directly in `/sd/roms/ports/`.
+Put the updater files inside:
 
-- `RGB-PI Updater.sh`
-- `RGB-PI Updater/update.sh`
+```text
+/sd/roms/ports/RGB-PI Updater/
+```
 
 If you already cloned this repo on the Pi:
 
 ```bash
-cp "RGB-PI Updater.sh" "/sd/roms/ports/RGB-PI Updater.sh"
 cp "update.sh" "/sd/roms/ports/RGB-PI Updater/update.sh"
-chmod +x "/sd/roms/ports/RGB-PI Updater.sh" "/sd/roms/ports/RGB-PI Updater/update.sh"
+chmod +x "/sd/roms/ports/RGB-PI Updater/update.sh"
 ```
 
-If you want to pull the two files straight from GitHub:
+If you want to pull the minimal entrypoint straight from GitHub:
 
 ```bash
-curl -fsSL "https://raw.githubusercontent.com/joeblack2k/kodi-rgbpi/main/RGB-PI%20Updater.sh" -o "/sd/roms/ports/RGB-PI Updater.sh"
 curl -fsSL "https://raw.githubusercontent.com/joeblack2k/kodi-rgbpi/main/update.sh" -o "/sd/roms/ports/RGB-PI Updater/update.sh"
-chmod +x "/sd/roms/ports/RGB-PI Updater.sh" "/sd/roms/ports/RGB-PI Updater/update.sh"
+chmod +x "/sd/roms/ports/RGB-PI Updater/update.sh"
 ```
 
 First launch will create `/sd/roms/ports/RGB-PI Updater/data/` automatically by downloading the runtime from GitHub.
@@ -80,13 +79,13 @@ When those files are present locally, `update.sh` and the component scripts use 
 From the RGB-Pi menu, launch:
 
 ```text
-RGB-PI Updater
+/sd/roms/ports/RGB-PI Updater/
 ```
 
 Or from shell:
 
 ```bash
-"/sd/roms/ports/RGB-PI Updater.sh"
+"/sd/roms/ports/RGB-PI Updater/update.sh"
 ```
 
 Useful direct commands:
