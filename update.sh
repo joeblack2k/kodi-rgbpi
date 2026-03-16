@@ -11,6 +11,8 @@ UPDATE_BRANCH="${UPDATE_BRANCH:-main}"
 RAW_BASE="${RAW_BASE:-https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${UPDATE_BRANCH}}"
 ACTIVE_TTY="${ACTIVE_TTY:-$(cat /sys/class/tty/tty0/active 2>/dev/null | tr -d '[:space:]')}"
 ACTIVE_TTY="${ACTIVE_TTY:-tty1}"
+DEFAULT_PI_USER="${DEFAULT_PI_USER:-pi}"
+DEFAULT_PI_PASSWORD="${DEFAULT_PI_PASSWORD:-rgbpi}"
 
 RUNTIME_FILES=(
   common.sh
@@ -45,6 +47,54 @@ export_runtime_env() {
   fi
 }
 
+sudo_env_args() {
+  printf '%s\0' \
+    "APP_ROOT=$APP_ROOT" \
+    "DATA_ROOT=$DATA_ROOT" \
+    "FORCE_BUNDLED_MANIFEST=${FORCE_BUNDLED_MANIFEST:-NO}" \
+    "SDL_AUDIODRIVER=$SDL_AUDIODRIVER" \
+    "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" \
+    "PYTHONUNBUFFERED=$PYTHONUNBUFFERED" \
+    "SDL_VIDEODRIVER=$SDL_VIDEODRIVER" \
+    "SDL_FBDEV=$SDL_FBDEV" \
+    "SDL_NOMOUSE=$SDL_NOMOUSE"
+}
+
+show_reboot_required_message() {
+  clear >/dev/null 2>&1 || true
+  cat <<'EOF'
+RGB-PI UPDATER
+
+First-run system setup is complete.
+
+Passwordless sudo for user pi was enabled automatically.
+Reboot RGB-Pi now.
+After reboot, launch the updater again and continue with the updates.
+
+Press ENTER or wait 15 seconds.
+EOF
+  read -r -t 15 _ || true
+}
+
+show_sudo_bootstrap_failed_message() {
+  clear >/dev/null 2>&1 || true
+  cat <<EOF
+RGB-PI UPDATER
+
+Automatic first-run sudo setup failed.
+
+This updater expects the stock ${DEFAULT_PI_USER} password on a clean OS4 image.
+If you changed it, run this once from shell:
+
+  sudo bash "${APP_DIR}/update.sh" root
+
+Then reboot RGB-Pi and launch the updater again.
+
+Press ENTER or wait 20 seconds.
+EOF
+  read -r -t 20 _ || true
+}
+
 runtime_complete() {
   local file
   for file in "${RUNTIME_FILES[@]}"; do
@@ -77,40 +127,69 @@ ensure_runtime() {
   bootstrap_runtime
 }
 
+ensure_passwordless_sudo_or_exit() {
+  local env_args=()
+  local current_user
+
+  if [[ "$EUID" -eq 0 ]]; then
+    return 0
+  fi
+
+  if sudo -n true >/dev/null 2>&1; then
+    return 0
+  fi
+
+  current_user="$(id -un 2>/dev/null || true)"
+  if [[ "$current_user" != "$DEFAULT_PI_USER" ]]; then
+    echo "Passwordless sudo missing for $current_user and automatic bootstrap is limited to ${DEFAULT_PI_USER}." >>"$LOG_FILE"
+    show_sudo_bootstrap_failed_message
+    exit 1
+  fi
+
+  echo "Passwordless sudo missing; attempting automatic first-run bootstrap." >>"$LOG_FILE"
+  while IFS= read -r -d '' arg; do
+    env_args+=("$arg")
+  done < <(sudo_env_args)
+
+  if printf '%s\n' "$DEFAULT_PI_PASSWORD" | sudo -S -p '' /usr/bin/env "${env_args[@]}" bash "$DATA_DIR/make_pi_root.sh" >>"$LOG_FILE" 2>&1; then
+    echo "Automatic first-run sudo bootstrap completed; reboot required." >>"$LOG_FILE"
+    show_reboot_required_message
+    exit 0
+  fi
+
+  echo "Automatic first-run sudo bootstrap failed." >>"$LOG_FILE"
+  show_sudo_bootstrap_failed_message
+  exit 1
+}
+
 sudo_exec_script() {
   local script="$1"
   shift || true
   ensure_runtime
   export_runtime_env
+  ensure_passwordless_sudo_or_exit
+  local env_args=()
+  while IFS= read -r -d '' arg; do
+    env_args+=("$arg")
+  done < <(sudo_env_args)
   exec sudo /usr/bin/env \
-    APP_ROOT="$APP_ROOT" \
-    DATA_ROOT="$DATA_ROOT" \
-    FORCE_BUNDLED_MANIFEST="${FORCE_BUNDLED_MANIFEST:-NO}" \
-    SDL_AUDIODRIVER="$SDL_AUDIODRIVER" \
-    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-    PYTHONUNBUFFERED="$PYTHONUNBUFFERED" \
-    SDL_VIDEODRIVER="$SDL_VIDEODRIVER" \
-    SDL_FBDEV="$SDL_FBDEV" \
-    SDL_NOMOUSE="$SDL_NOMOUSE" \
+    "${env_args[@]}" \
     bash "$script" "$@"
 }
 
 launch_menu() {
   ensure_runtime
   export_runtime_env
+  ensure_passwordless_sudo_or_exit
   CURRENT_TTY="$(readlink -f /proc/self/fd/0 2>/dev/null || true)"
   if [[ "$EUID" -ne 0 || "$CURRENT_TTY" != "/dev/${ACTIVE_TTY}" ]]; then
+    local env_args=()
+    while IFS= read -r -d '' arg; do
+      env_args+=("$arg")
+    done < <(sudo_env_args)
     exec sudo /usr/bin/env \
       ACTIVE_TTY="$ACTIVE_TTY" \
-      APP_ROOT="$APP_ROOT" \
-      DATA_ROOT="$DATA_ROOT" \
-      FORCE_BUNDLED_MANIFEST="${FORCE_BUNDLED_MANIFEST:-NO}" \
-      SDL_AUDIODRIVER="$SDL_AUDIODRIVER" \
-      XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-      PYTHONUNBUFFERED="$PYTHONUNBUFFERED" \
-      SDL_VIDEODRIVER="$SDL_VIDEODRIVER" \
-      SDL_FBDEV="$SDL_FBDEV" \
-      SDL_NOMOUSE="$SDL_NOMOUSE" \
+      "${env_args[@]}" \
       bash -lc 'exec </dev/"$ACTIVE_TTY" >/dev/"$ACTIVE_TTY" 2>&1; exec "$0" __menu_internal "$@"' \
       "$APP_DIR/update.sh" "$@"
   fi
@@ -130,6 +209,7 @@ case "${1:-}" in
   --dump-status|--terminal)
     ensure_runtime
     export_runtime_env
+    ensure_passwordless_sudo_or_exit
     exec python3 "$DATA_DIR/rgbpi_update_menu.py" "$@"
     ;;
   kodi)

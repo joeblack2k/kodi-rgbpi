@@ -17,7 +17,7 @@ Do not launch the individual files in `data/` directly.
 - updates RetroArch
 - updates the core bundle
 - updates `timings.dat`
-- can make user `pi` passwordless sudo from the menu
+- automatically enables passwordless sudo for `pi` on first run
 - bootstraps the missing `data/` runtime from GitHub when only `update.sh` was copied
 
 ## Install On RGB-Pi
@@ -50,6 +50,16 @@ chmod +x "/sd/roms/ports/RGB-PI Updater/update.sh"
 ```
 
 First launch will create `/sd/roms/ports/RGB-PI Updater/data/` automatically by downloading the runtime from GitHub.
+
+On a clean RGB-Pi OS4 image, the first launch also enables passwordless sudo for `pi`, tells you to reboot, and exits there on purpose.
+After that reboot, launch the updater again and do the actual updates.
+
+The automatic first-run sudo bootstrap assumes the stock `pi` password is `rgbpi`.
+If you changed that password before first launch, run this once manually instead:
+
+```bash
+sudo bash "/sd/roms/ports/RGB-PI Updater/update.sh" root
+```
 
 ## Optional Bundled Install
 
