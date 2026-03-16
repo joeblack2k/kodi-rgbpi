@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+import select
 import subprocess
 import sys
 import time
@@ -21,6 +22,7 @@ BOOTSTRAP_SCRIPT = DATA_DIR / "bootstrap_local_metadata.sh"
 
 KODI_LOG = Path("/var/log/kodi-updater/latest.log")
 RETROARCH_LOG = Path("/var/log/retroarch-updater/latest.log")
+RETROARCH_STACK_LOG = Path("/var/log/rgbpi-updater/retroarch-stack.log")
 BOOTSTRAP_LOG = Path("/var/log/rgbpi-updater-bootstrap/latest.log")
 WINDOW_SIZE = (320, 240)
 BUNDLED_ASSETS = [
@@ -32,6 +34,7 @@ FPS = 30
 BTN_BACK = 6
 BTN_START = 7
 COMBO_WINDOW_SECONDS = 0.35
+PROGRESS_RE = re.compile(r"\[(\d{1,3})%\]\s*\[[^\]]*\]\s*(.*)")
 
 
 @dataclass
@@ -233,25 +236,20 @@ class MenuApp:
             ])
             return MenuState("kodi", "KODI", "SYSTEM UPDATE", entries)
         if self.state == "retroarch":
+            pending = self.retroarch_pending_updates()
             entries = [
                 MenuEntry(f"RetroArch: {self.retroarch.installed}"),
-                MenuEntry(f"Available: {self.retroarch.available}"),
-            ]
-            if self.retroarch.update_available:
-                entries.append(MenuEntry(f"Update RetroArch {self.retroarch.available}", lambda: self.run_and_refresh(RETROARCH_SCRIPT), "action"))
-            entries.extend([
+                MenuEntry(f"RetroArch new: {self.retroarch.available}"),
                 MenuEntry(f"Cores: {self.cores.installed}"),
-                MenuEntry(f"Available: {self.cores.available}"),
-            ])
-            if self.cores.update_available:
-                entries.append(MenuEntry(f"Update Cores {self.cores.available}", lambda: self.run_and_refresh(CORES_SCRIPT), "action"))
-            entries.extend([
+                MenuEntry(f"Cores new: {self.cores.available}"),
                 MenuEntry(f"Timings: {self.timings.installed}"),
-                MenuEntry(f"Available: {self.timings.available}"),
-            ])
-            if self.timings.update_available:
-                entries.append(MenuEntry(f"Update Timings {self.timings.available}", lambda: self.run_and_refresh(TIMINGS_SCRIPT), "action"))
+                MenuEntry(f"Timings new: {self.timings.available}"),
+                MenuEntry(f"Pending: {', '.join(pending) if pending else 'none'}"),
+            ]
+            if pending:
+                entries.append(MenuEntry("Update All", self.run_retroarch_stack_update, "action"))
             entries.extend([
+                MenuEntry("View Update log", lambda: self.open_log("RetroArch Update Log", RETROARCH_STACK_LOG), "action"),
                 MenuEntry("View RetroArch log", lambda: self.open_log("RetroArch Log", RETROARCH_LOG), "action"),
                 MenuEntry("Back", lambda: self.open_state("main"), "action"),
             ])
@@ -282,10 +280,30 @@ class MenuApp:
         return 0
 
     def run_and_refresh(self, script: Path) -> int:
-        self.draw_loading("Running update...")
-        rc = run_action(script)
+        rc = self.run_with_progress(script, "Running update...")
         self.refresh()
         self.set_notice("Update complete" if rc == 0 else f"Update failed ({rc})", 2.5)
+        return rc
+
+    def retroarch_pending_updates(self) -> list[str]:
+        pending = []
+        if self.retroarch.update_available:
+            pending.append("RetroArch")
+        if self.cores.update_available:
+            pending.append("Cores")
+        if self.timings.update_available:
+            pending.append("Timings")
+        return pending
+
+    def run_retroarch_stack_update(self) -> int:
+        steps = [
+            ("RetroArch", RETROARCH_SCRIPT),
+            ("Cores", CORES_SCRIPT),
+            ("Timings", TIMINGS_SCRIPT),
+        ]
+        rc = self.run_steps_with_progress(steps, RETROARCH_STACK_LOG)
+        self.refresh()
+        self.set_notice("RetroArch stack updated" if rc == 0 else f"Update failed ({rc})", 2.5)
         return rc
 
     def run_system_action(self, script: Path, success_notice: str) -> int:
@@ -293,6 +311,107 @@ class MenuApp:
         rc = run_script(script)
         self.refresh()
         self.set_notice(success_notice if rc == 0 else f"Action failed ({rc})", 2.5)
+        return rc
+
+    def overall_progress(self, step_index: int, step_total: int, child_percent: int) -> int:
+        child_percent = max(0, min(100, child_percent))
+        if step_total <= 1:
+            return child_percent
+        overall = ((step_index + (child_percent / 100.0)) / step_total) * 100.0
+        return max(0, min(100, int(round(overall))))
+
+    def parse_progress_segment(self, segment: str, current_percent: int, current_detail: str) -> tuple[int, str]:
+        text = segment.strip()
+        if not text:
+            return current_percent, current_detail
+        match = PROGRESS_RE.search(text)
+        if match:
+            percent = max(0, min(100, int(match.group(1))))
+            detail = match.group(2).strip() or current_detail
+            return percent, detail
+        return current_percent, text
+
+    def run_with_progress(self, script: Path, message: str) -> int:
+        return self.run_command_with_progress(
+            sudo_script_command(script, "--update"),
+            title="PLEASE WAIT",
+            status=message,
+            step_index=0,
+            step_total=1,
+        )
+
+    def run_steps_with_progress(self, steps: list[tuple[str, Path]], log_path: Path) -> int:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("w", encoding="utf-8") as log_handle:
+            for index, (name, script) in enumerate(steps):
+                log_handle.write(f"== {name} ==\n")
+                rc = self.run_command_with_progress(
+                    sudo_script_command(script, "--update"),
+                    title="PLEASE WAIT",
+                    status=f"Step {index + 1}/{len(steps)}: {name}",
+                    step_index=index,
+                    step_total=len(steps),
+                    log_handle=log_handle,
+                )
+                log_handle.write("\n")
+                log_handle.flush()
+                if rc != 0:
+                    return rc
+        return 0
+
+    def run_command_with_progress(
+        self,
+        command: list[str],
+        title: str,
+        status: str,
+        step_index: int,
+        step_total: int,
+        log_handle=None,
+    ) -> int:
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        assert proc.stdout is not None
+        fd = proc.stdout.fileno()
+        os.set_blocking(fd, False)
+
+        buffer = ""
+        percent = 0
+        detail = "Starting..."
+
+        while True:
+            self.pygame.event.pump()
+            ready, _, _ = select.select([proc.stdout], [], [], 0.05)
+            if ready:
+                try:
+                    chunk = os.read(fd, 4096)
+                except BlockingIOError:
+                    chunk = b""
+                if chunk:
+                    text = chunk.decode("utf-8", errors="replace")
+                    if log_handle is not None:
+                        log_handle.write(text.replace("\r", "\n"))
+                        log_handle.flush()
+                    buffer += text.replace("\r", "\n")
+                    while "\n" in buffer:
+                        segment, buffer = buffer.split("\n", 1)
+                        percent, detail = self.parse_progress_segment(segment, percent, detail)
+
+            self.draw_progress(title, status, self.overall_progress(step_index, step_total, percent), detail)
+            self.clock.tick(FPS)
+
+            if proc.poll() is not None and not ready:
+                break
+
+        if buffer.strip():
+            percent, detail = self.parse_progress_segment(buffer, percent, detail)
+
+        rc = proc.wait()
+        final_percent = 100 if rc == 0 else percent
+        final_detail = detail if rc == 0 else f"{detail} (failed)"
+        self.draw_progress(title, status, self.overall_progress(step_index, step_total, final_percent), final_detail)
         return rc
 
     def exit_app(self) -> int:
@@ -413,6 +532,21 @@ class MenuApp:
         self.screen.fill((6, 10, 22))
         self.blit(self.title_font, "PLEASE WAIT", (88, 84), (236, 246, 255))
         self.blit(self.body_font, message, (68, 116), (176, 220, 255))
+        self.pygame.display.flip()
+
+    def draw_progress(self, title: str, status: str, percent: int, detail: str) -> None:
+        self.screen.fill((6, 10, 22))
+        self.blit(self.title_font, title, (88, 52), (236, 246, 255))
+        self.blit(self.body_font, self.ellipsize(self.body_font, status, 250), (34, 86), (176, 220, 255))
+
+        bar_outer = self.pygame.Rect(24, 124, 272, 20)
+        bar_inner = self.pygame.Rect(26, 126, max(0, int(268 * (percent / 100.0))), 16)
+        self.pygame.draw.rect(self.screen, (16, 34, 74), bar_outer)
+        self.pygame.draw.rect(self.screen, (92, 144, 206), bar_outer, 1)
+        if bar_inner.width > 0:
+            self.pygame.draw.rect(self.screen, (224, 242, 255), bar_inner)
+        self.blit(self.body_font, f"{percent}%", (136, 152), (236, 246, 255))
+        self.blit(self.small_font, self.ellipsize(self.small_font, detail, 286), (18, 186), (166, 204, 240))
         self.pygame.display.flip()
 
     def draw(self) -> None:

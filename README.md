@@ -20,6 +20,7 @@ Current release note:
 - updates RetroArch
 - updates the core bundle
 - updates `timings.dat`
+- shows a live 0-100 progress bar while updates run
 - automatically enables passwordless sudo for `pi` on first run
 - bootstraps the missing `data/` runtime from GitHub when only `update.sh` was copied
 
@@ -120,6 +121,9 @@ Or from shell:
 ```bash
 "/media/sd/roms/ports/RGB-PI Updater/update.sh"
 ```
+
+Inside the RetroArch page in the menu, the updater now exposes one `Update All` action.
+That single action runs the managed RetroArch frontend, core bundle, and `timings.dat` updates in sequence and writes a combined log.
 
 Useful direct commands:
 
