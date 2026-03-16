@@ -1,12 +1,19 @@
 {
   "channel": "latest",
-  "updated_at": "2026-03-15T15:05:00+01:00",
+  "updated_at": "2026-03-16T06:40:00+00:00",
   "assets": {
     "kodi": {
       "version": "2:21.3~git20260315.1217-a3a448d26b-dirty-0bullseye",
       "filename": "kodi.deb",
       "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/kodi.deb",
       "sha256": "0f907a141285ca7aab938c79ab4e566a67431781fb710d7be7dae9846c566a5e"
+    },
+    "kodi_joystick": {
+      "version": "21.1.23",
+      "peripheral_abi": "3.0.2",
+      "filename": "kodi-omega-peripheral-joystick.tar.gz",
+      "url": "https://github.com/joeblack2k/kodi-rgbpi/releases/download/latest/kodi-omega-peripheral-joystick.tar.gz",
+      "sha256": "1f2a13857e768e9c29b0ad61bd2a54ee806057a9359e23a5b39f5119fc63bd0a"
     },
     "retroarch": {
       "version": "1.22.0-rgbpi1",

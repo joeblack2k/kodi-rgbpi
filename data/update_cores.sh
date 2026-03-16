@@ -3,10 +3,12 @@
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "${SCRIPT_DIR}/common.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DATA_ROOT="${DATA_ROOT:-$SCRIPT_DIR}"
+APP_ROOT="${APP_ROOT:-$(cd -- "${DATA_ROOT}/.." && pwd)}"
+. "${DATA_ROOT}/common.sh"
 
-DOWNLOAD_DIR="/home/pi/ports/debs"
+DOWNLOAD_DIR="${DATA_ROOT}/debs"
 ARCHIVE_PATH="${DOWNLOAD_DIR}/cores.tar.gz"
 BACKUP_ROOT="/opt/backups/agents/retroarch-cores"
 LOG_FILE="/var/log/retroarch-cores-update.log"
@@ -45,8 +47,9 @@ main() {
     exit 1
   fi
 
-  local available url checksum installed update_flag
+  local available filename url checksum installed update_flag
   available="$(manifest_field cores version)"
+  filename="$(manifest_field cores filename)"
   url="$(manifest_field cores url)"
   checksum="$(manifest_field cores sha256)"
   installed="$(installed_version)"
@@ -76,7 +79,11 @@ main() {
   tmpdir="$(mktemp -d)"
 
   bar 28 "Downloading core bundle"
-  run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$ARCHIVE_PATH'"
+  if [[ -n "$filename" && -f "${ASSET_ROOT}/${filename}" ]]; then
+    run_cmd "$LOG_FILE" "$DRY_RUN" "cp '${ASSET_ROOT}/${filename}' '$ARCHIVE_PATH'"
+  else
+    run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$ARCHIVE_PATH'"
+  fi
   if [[ -n "$checksum" && "$checksum" != "unknown" ]]; then
     local actual
     actual="$(sha256_file "$ARCHIVE_PATH")"

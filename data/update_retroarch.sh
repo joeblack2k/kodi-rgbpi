@@ -3,10 +3,12 @@
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "${SCRIPT_DIR}/common.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DATA_ROOT="${DATA_ROOT:-$SCRIPT_DIR}"
+APP_ROOT="${APP_ROOT:-$(cd -- "${DATA_ROOT}/.." && pwd)}"
+. "${DATA_ROOT}/common.sh"
 
-DOWNLOAD_DIR="/home/pi/ports/debs"
+DOWNLOAD_DIR="${DATA_ROOT}/debs"
 ARCHIVE_PATH="${DOWNLOAD_DIR}/retroarch-rgbpi.tar.gz"
 BACKUP_ROOT="/opt/backups/agents/retroarch"
 LOG_FILE="/var/log/retroarch-update.log"
@@ -42,8 +44,9 @@ main() {
     exit 1
   fi
 
-  local available url checksum binary_checksum installed update_flag local_sha fallback_detected
+  local available filename url checksum binary_checksum installed update_flag local_sha fallback_detected
   available="$(manifest_field retroarch version)"
+  filename="$(manifest_field retroarch filename)"
   url="$(manifest_field retroarch url)"
   checksum="$(manifest_field retroarch sha256)"
   binary_checksum="$(manifest_field retroarch binary_sha256)"
@@ -88,7 +91,11 @@ main() {
   fi
 
   bar 30 "Downloading RetroArch package"
-  run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$ARCHIVE_PATH'"
+  if [[ -n "$filename" && -f "${ASSET_ROOT}/${filename}" ]]; then
+    run_cmd "$LOG_FILE" "$DRY_RUN" "cp '${ASSET_ROOT}/${filename}' '$ARCHIVE_PATH'"
+  else
+    run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$ARCHIVE_PATH'"
+  fi
 
   if [[ -n "$checksum" && "$checksum" != "unknown" ]]; then
     local actual

@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# Ensure the RGB-Pi "pi" user keeps passwordless sudo via a dedicated drop-in.
-
 set -euo pipefail
 
 TARGET="/etc/sudoers.d/010_pi-nopasswd"
 TMP="$(mktemp)"
 
-cat > "$TMP" <<'EOF'
+cat > "$TMP" <<'RULE'
 pi ALL=(ALL) NOPASSWD:ALL
-EOF
+RULE
 
 install -m 0440 "$TMP" "$TARGET"
 visudo -cf "$TARGET"

@@ -1,2 +1,5 @@
-dist/
-scripts/__pycache__/
+__pycache__/
+*.pyc
+*.pyo
+logs/
+.DS_Store

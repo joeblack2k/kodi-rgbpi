@@ -3,10 +3,12 @@
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "${SCRIPT_DIR}/common.sh"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DATA_ROOT="${DATA_ROOT:-$SCRIPT_DIR}"
+APP_ROOT="${APP_ROOT:-$(cd -- "${DATA_ROOT}/.." && pwd)}"
+. "${DATA_ROOT}/common.sh"
 
-DOWNLOAD_DIR="/home/pi/ports/debs"
+DOWNLOAD_DIR="${DATA_ROOT}/debs"
 TARGET_FILE="/opt/rgbpi/ui/data/timings.dat"
 VERSION_FILE="/opt/rgbpi/ui/data/.timings-version"
 TMP_FILE="${DOWNLOAD_DIR}/timings.dat"
@@ -45,8 +47,9 @@ main() {
     exit 1
   fi
 
-  local available url checksum installed update_flag
+  local available filename url checksum installed update_flag
   available="$(manifest_field timings version)"
+  filename="$(manifest_field timings filename)"
   url="$(manifest_field timings url)"
   checksum="$(manifest_field timings sha256)"
   installed="$(installed_version)"
@@ -75,7 +78,11 @@ main() {
   backup="${BACKUP_ROOT}/${ts}"
 
   bar 30 "Downloading timings.dat"
-  run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$TMP_FILE'"
+  if [[ -n "$filename" && -f "${ASSET_ROOT}/${filename}" ]]; then
+    run_cmd "$LOG_FILE" "$DRY_RUN" "cp '${ASSET_ROOT}/${filename}' '$TMP_FILE'"
+  else
+    run_cmd "$LOG_FILE" "$DRY_RUN" "curl -fL --retry 3 --connect-timeout 15 '$url' -o '$TMP_FILE'"
+  fi
   if [[ -n "$checksum" && "$checksum" != "unknown" ]]; then
     local actual
     actual="$(sha256_file "$TMP_FILE")"

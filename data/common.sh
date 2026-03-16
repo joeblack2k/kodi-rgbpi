@@ -5,10 +5,17 @@ set -u
 REPO_OWNER="${REPO_OWNER:-joeblack2k}"
 REPO_NAME="${REPO_NAME:-kodi-rgbpi}"
 RELEASE_TAG="${RELEASE_TAG:-latest}"
-MANIFEST_URL_PRIMARY="${MANIFEST_URL_PRIMARY:-https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/manifest.json}"
-MANIFEST_URL_FALLBACK="${MANIFEST_URL_FALLBACK:-https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/manifest.json}"
-WORK_ROOT="${WORK_ROOT:-/home/pi/ports/.updater}"
+MANIFEST_URL_PRIMARY="${MANIFEST_URL_PRIMARY-https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${RELEASE_TAG}/manifest.json}"
+MANIFEST_URL_FALLBACK="${MANIFEST_URL_FALLBACK-https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/manifest.json}"
+FORCE_BUNDLED_MANIFEST="${FORCE_BUNDLED_MANIFEST:-NO}"
+SCRIPT_DIR="${SCRIPT_DIR:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)}"
+DATA_ROOT="${DATA_ROOT:-$SCRIPT_DIR}"
+APP_ROOT="${APP_ROOT:-$(cd -- "${DATA_ROOT}/.." && pwd)}"
+WORK_ROOT="${WORK_ROOT:-${APP_ROOT}/.updater}"
 MANIFEST_CACHE="${MANIFEST_CACHE:-${WORK_ROOT}/manifest.json}"
+BUNDLED_MANIFEST="${BUNDLED_MANIFEST:-${DATA_ROOT}/manifest.json}"
+ASSET_ROOT="${ASSET_ROOT:-${DATA_ROOT}}"
+MANIFEST_CACHE_MAX_AGE="${MANIFEST_CACHE_MAX_AGE:-300}"
 
 bar() {
   local pct="${1:-0}" msg="${2:-}"
@@ -59,8 +66,18 @@ require_root() {
 
 ensure_tooling() {
   local log_file="$1" dry_run="$2"
+  local missing=()
+  local cmd
+  for cmd in curl python3; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      missing+=("$cmd")
+    fi
+  done
+  if ((${#missing[@]} == 0)); then
+    return 0
+  fi
   run_cmd "$log_file" "$dry_run" "apt-get update -y >/dev/null"
-  run_cmd "$log_file" "$dry_run" "apt-get install -y curl python3 ca-certificates >/dev/null"
+  run_cmd "$log_file" "$dry_run" "apt-get install -y ${missing[*]} ca-certificates >/dev/null"
 }
 
 fetch_manifest() {
@@ -68,17 +85,39 @@ fetch_manifest() {
   mkdir -p "$WORK_ROOT"
   if [[ "$dry_run" == "YES" ]]; then
     log "$log_file" "DRY-RUN: would fetch manifest to $MANIFEST_CACHE"
-    cp "${PWD}/manifest.json" "$MANIFEST_CACHE" 2>/dev/null || true
+    cp "$BUNDLED_MANIFEST" "$MANIFEST_CACHE" 2>/dev/null || true
     return 0
   fi
 
-  if curl -fsSL --retry 3 --connect-timeout 15 "$MANIFEST_URL_PRIMARY" -o "$MANIFEST_CACHE"; then
+  if [[ "$FORCE_BUNDLED_MANIFEST" == "YES" && -f "$BUNDLED_MANIFEST" ]]; then
+    cp "$BUNDLED_MANIFEST" "$MANIFEST_CACHE"
+    log "$log_file" "manifest_source=$BUNDLED_MANIFEST (forced)"
+    return 0
+  fi
+
+  if [[ -f "$MANIFEST_CACHE" ]]; then
+    local now cache_age
+    now="$(date +%s)"
+    cache_age=$((now - $(stat -c %Y "$MANIFEST_CACHE" 2>/dev/null || echo 0)))
+    if ((cache_age >= 0 && cache_age < MANIFEST_CACHE_MAX_AGE)); then
+      log "$log_file" "manifest_source=$MANIFEST_CACHE (cached ${cache_age}s)"
+      return 0
+    fi
+  fi
+
+  if [[ -n "$MANIFEST_URL_PRIMARY" ]] && curl -fsSL --retry 3 --connect-timeout 15 "$MANIFEST_URL_PRIMARY" -o "$MANIFEST_CACHE"; then
     log "$log_file" "manifest_source=$MANIFEST_URL_PRIMARY"
     return 0
   fi
 
-  if curl -fsSL --retry 3 --connect-timeout 15 "$MANIFEST_URL_FALLBACK" -o "$MANIFEST_CACHE"; then
+  if [[ -n "$MANIFEST_URL_FALLBACK" ]] && curl -fsSL --retry 3 --connect-timeout 15 "$MANIFEST_URL_FALLBACK" -o "$MANIFEST_CACHE"; then
     log "$log_file" "manifest_source=$MANIFEST_URL_FALLBACK"
+    return 0
+  fi
+
+  if [[ -f "$BUNDLED_MANIFEST" ]]; then
+    cp "$BUNDLED_MANIFEST" "$MANIFEST_CACHE"
+    log "$log_file" "manifest_source=$BUNDLED_MANIFEST"
     return 0
   fi
 
